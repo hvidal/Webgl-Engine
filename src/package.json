@@ -1,0 +1,34 @@
+{
+  "name": "webgl-engine",
+  "version": "0.0.1",
+  "description": "A simple WebGL engine",
+  "main": "app.js",
+  "scripts": {
+    "start": "budo app --open --live",
+    "test": "standard"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hvidal/Webgl-Engine.git"
+  },
+  "keywords": [
+    "webgl",
+    "engine",
+    "shadow",
+    "mapping",
+    "opengl",
+    "gl",
+    "lighting"
+  ],
+  "author": "Hugo Vidal Teixeira <hugo.tech@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/hvidal/Webgl-Engine",
+  "devDependencies": {
+    "budo": "^10.0.4",
+    "standard": "^10.0.3"
+  },
+  "dependencies": {
+    "gl-mat4": "^1.1.4",
+    "stanford-dragon": "^1.1.1"
+  }
+}

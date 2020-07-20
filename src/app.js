@@ -267,13 +267,13 @@ class ShadowMap {
 		this._isRendering = false;
 
 		const vertexGLSL = `
-			attribute vec3 aVertexPosition;
+			attribute vec3 position;
 
-			uniform mat4 uPMatrix;
-			uniform mat4 uMVMatrix;
+			uniform mat4 P;
+			uniform mat4 MV;
 
 			void main (void) {
-				gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+				gl_Position = P * MV * vec4(position, 1.0);
 			}
 		`;
 
@@ -332,8 +332,8 @@ class ShadowMap {
 		this.lightProjectionMatrix = glMat4.ortho([], -40, 40, -40, 40, -40.0, 80);
 		this.lightViewMatrix = glMat4.lookAt([], [0, 2, -3], [0, 0, 0], [0, 1, 0]);
 
-		var shadowPMatrix = gl.getUniformLocation(this.shader.shaderProgram, 'uPMatrix');
-		var shadowMVMatrix = gl.getUniformLocation(this.shader.shaderProgram, 'uMVMatrix');
+		var shadowPMatrix = gl.getUniformLocation(this.shader.shaderProgram, 'P');
+		var shadowMVMatrix = gl.getUniformLocation(this.shader.shaderProgram, 'MV');
 
 		gl.uniformMatrix4fv(shadowPMatrix, false, this.lightProjectionMatrix);
 		gl.uniformMatrix4fv(shadowMVMatrix, false, this.lightViewMatrix);
@@ -345,7 +345,7 @@ class ShadowMap {
 		shader.setTexture('depthColorTexture', this.shadowDepthTexture);
 		shader.setMatrix4fv('lightMViewMatrix', this.lightViewMatrix);
 		shader.setMatrix4fv('lightProjectionMatrix', this.lightProjectionMatrix);
-		shader.setMatrix4fv('uPMatrix', glMat4.perspective([], Math.PI / 3, 1, 0.01, 900));
+		shader.setMatrix4fv('P', glMat4.perspective([], Math.PI / 3, 1, 0.01, 900));
 	}
 
 	start() {
@@ -371,10 +371,10 @@ class ShadowMap {
 var shadowTextureSize = 1024;
 
 const cameraVertexGLSL = `
-	attribute vec3 aVertexPosition;
+	attribute vec3 position;
 
-	uniform mat4 uPMatrix;
-	uniform mat4 uMVMatrix;
+	uniform mat4 P;
+	uniform mat4 MV;
 	uniform mat4 lightMViewMatrix;
 	uniform mat4 lightProjectionMatrix;
 
@@ -390,9 +390,8 @@ const cameraVertexGLSL = `
 	varying vec4 shadowPos;
 
 	void main (void) {
-	  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-
-	  shadowPos = texUnitConverter * lightProjectionMatrix * lightMViewMatrix * vec4(aVertexPosition, 1.0);
+	  gl_Position = P * MV * vec4(position, 1.0);
+	  shadowPos = texUnitConverter * lightProjectionMatrix * lightMViewMatrix * vec4(position, 1.0);
 	}
 `;
 
@@ -407,10 +406,10 @@ const cameraFragmentGLSL = `
 
 	float decodeFloat (vec4 color) {
 	  const vec4 bitShift = vec4(
-		1.0 / (256.0 * 256.0 * 256.0),
-		1.0 / (256.0 * 256.0),
-		1.0 / 256.0,
-		1
+			1.0 / (256.0 * 256.0 * 256.0),
+			1.0 / (256.0 * 256.0),
+			1.0 / 256.0,
+			1
 	  );
 	  return dot(color, bitShift);
 	}
@@ -431,12 +430,12 @@ const cameraFragmentGLSL = `
 	  // this fragment is 4/9ths in the shadow so it'll be a little brighter than something
 	  // that is 9/9ths in the shadow.
 	  for (int x = -1; x <= 1; x++) {
-		for (int y = -1; y <= 1; y++) {
-		  float texelDepth = decodeFloat(texture2D(depthColorTexture, fragmentDepth.xy + vec2(x, y) * texelSize));
-		  if (fragmentDepth.z < texelDepth) {
-			amountInLight += 1.0;
-		  }
-		}
+			for (int y = -1; y <= 1; y++) {
+				float texelDepth = decodeFloat(texture2D(depthColorTexture, fragmentDepth.xy + vec2(x, y) * texelSize));
+				if (fragmentDepth.z < texelDepth) {
+					amountInLight += 1.0;
+				}
+			}
 	  }
 	  amountInLight /= 9.0;
 
@@ -542,13 +541,13 @@ class Dragon extends SceneObject {
 
 		if (shadowMap.isRendering()) {
 			glMat4.multiply(m, shadowMap.lightViewMatrix, m);
-			shadowMap.shader.setMatrix4fv('uMVMatrix', m);
+			shadowMap.shader.setMatrix4fv('MV', m);
 		} else {
 			// We use the light's model view matrix of our dragon so that our camera knows if parts of the dragon are in the shadow
 			const lightMVMatrix = glMat4.create();
 			glMat4.multiply(lightMVMatrix, shadowMap.lightViewMatrix, m);
 			cameraShader.setMatrix4fv('lightMViewMatrix', lightMVMatrix);
-			cameraShader.setMatrix4fv('uMVMatrix', glMat4.multiply(m, camera, m));
+			cameraShader.setMatrix4fv('MV', glMat4.multiply(m, camera, m));
 			cameraShader.set3fv('uColor', [0.36, 0.66, 0.8]);
 			shadowMap.shadowDepthTexture.bind();
 		}
@@ -576,7 +575,7 @@ camera.registerEvents(scene.canvas);
 const cameraShader = new Shader(gl, cameraVertexGLSL, cameraFragmentGLSL);
 
 // We enable our vertex attributes for our camera's shader.
-const vertexPositionAttrib = cameraShader.getAttributeLocation('aVertexPosition');
+const vertexPositionAttrib = cameraShader.getAttributeLocation('position');
 
 const dragon = new Dragon(gl, vertexPositionAttrib);
 const floor = new Floor(gl, vertexPositionAttrib);
@@ -607,7 +606,7 @@ function drawModels () {
 	floor.bind();
 
 	cameraShader.setMatrix4fv('lightMViewMatrix', shadowMap.lightViewMatrix);
-	cameraShader.setMatrix4fv('uMVMatrix', cameraMatrix);
+	cameraShader.setMatrix4fv('MV', cameraMatrix);
 	cameraShader.set3fv('uColor', [0.6, 0.6, 0.6]);
 
 	floor.render();
